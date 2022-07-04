@@ -1,0 +1,10 @@
+Cython @ file:///buildstream/freedesktop-sdk/components/cython.bst
+distlib==0.3.4
+filelock==3.7.1
+Mako @ file:///buildstream/freedesktop-sdk/components/python3-mako.bst
+Markdown @ file:///buildstream/freedesktop-sdk/components/python3-markdown.bst
+MarkupSafe==2.1.1
+meson @ file:///buildstream/freedesktop-sdk/components/meson.bst
+platformdirs==2.5.2
+Pygments==2.12.0
+six==1.16.0
