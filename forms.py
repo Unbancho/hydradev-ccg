@@ -3,10 +3,6 @@ from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, ValidationError
 from models import User
 
-#import wtforms_json
-
-#wtforms_json.init()
-
 class AuthenticationForm(FlaskForm):
     username = StringField(validators=[InputRequired()], render_kw={"placeholder": 'Username'})
     password = PasswordField(validators=[InputRequired()], render_kw={"placeholder": 'Password'})
@@ -24,5 +20,3 @@ class SignUpForm(AuthenticationForm):
 
 class LoginForm(AuthenticationForm):
     submit = SubmitField("Sign In")
-
-#class DeckForm(FlaskForm):

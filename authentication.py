@@ -1,8 +1,9 @@
 from flask import Blueprint, jsonify, request
 from flask_login import LoginManager, login_required, login_user, logout_user, current_user
-from models import User, db
+from models import User, Deck, Card, db
 from flask_bcrypt import Bcrypt
-
+from flask_admin import Admin
+from flask_admin.contrib.sqla import ModelView
 
 auth = Blueprint(name="auth", import_name=__name__, url_prefix="/auth", template_folder='templates')
 
@@ -10,6 +11,12 @@ login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 
 bcrypt = Bcrypt()
+
+# TODO: Finish.
+admin = Admin()
+admin.add_view(ModelView(User, db.session))
+admin.add_view(ModelView(Deck, db.session))
+admin.add_view(ModelView(Card, db.session))
 
 @auth.route('/login', methods=['POST'])
 def login() -> jsonify:
@@ -20,7 +27,7 @@ def login() -> jsonify:
     authenticated = user and bcrypt.check_password_hash(user.hash, password)
     if(authenticated):
         login_user(load_user(user.id))
-    return jsonify({"login": authenticated})
+    return {"login": authenticated}
 
 @auth.route('/register', methods=['POST'])
 def register() -> jsonify:
@@ -33,8 +40,7 @@ def register() -> jsonify:
     user = User(username=username, hash=hash, real_name=register_data.get("real_name"))
     db.session.add(user)
     db.session.commit()
-    # TODO: jsonifies automatically? return normal dict?
-    return jsonify({"register": True})
+    return {"register": True}
 
 @auth.route("/logout")
 @login_required
