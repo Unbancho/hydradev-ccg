@@ -1,32 +1,25 @@
-from flask import Flask, render_template, jsonify, request
-from flask_login import LoginManager
-from models import User
+from flask import Flask, render_template
+from models import User, db
+from forms import SignUpForm
+from authentication import auth, login_manager
+from deck_management import decks
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+# TODO: Make it actually secretive.
+app.config['SECRET_KEY'] = 'GWENT'
 
-login_manager = LoginManager()
-login_manager.init_app(app)
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def catch_all(path):
-    # TODO: Create SPA endpoint.
-    return app.send_static_file()
+    db.create_all()
+    return render_template('index.html')
 
-@app.route('/login', methods=['GET', 'POST'])
-def login() -> jsonify:
-    login_data = request.json
-    username = login_data.get("username")
-    # TODO: Hash and salt.
-    password = login_data.get("password")
-    # TODO: Authenticate.
-    return jsonify({"login": AUTH_SUCCESS})
-
-# TODO: Instantiate user.
-@login_manager.user_loader
-def load_user(user) -> User:
-    return User()
-    
 
 if __name__ == "__main__":
+    app.register_blueprint(auth)
+    app.register_blueprint(decks)
+    db.init_app(app)
+    login_manager.init_app(app)
     app.run(debug=True)
