@@ -26,7 +26,7 @@ def get_decks() -> jsonify:
 @login_required
 def get_deck(id: int) -> jsonify:
     deck = Deck.query.get(int(id))
-    if deck and deck.user == current_user:
+    if deck and deck.user == current_user or current_user.admin:
         return deck.jsonify()
     return {}
 
@@ -34,7 +34,7 @@ def get_deck(id: int) -> jsonify:
 @login_required
 def delete_deck(id: int) -> jsonify:
     deck = Deck.query.get(int(id))
-    if not deck or deck.user != current_user:
+    if not deck or (deck.user != current_user and not current_user.admin):
         return {"deck_deleted": False}
     db.session.delete(deck)
     db.session.commit()
@@ -67,6 +67,8 @@ def add_card_to_user() -> jsonify:
 @login_required
 def add_card_to_deck(deck_id : int, card_id : int =None) -> jsonify:
     deck = Deck.query.get(int(deck_id))
+    if not deck or (deck.user != current_user and not current_user.admin):
+        return {"card_added": False}
     if card_id:
         card = Card.query.get(int(card_id))
         deck.cards.append(card)
@@ -87,7 +89,7 @@ def add_card_to_deck(deck_id : int, card_id : int =None) -> jsonify:
 @login_required
 def remove_card_from_user(id : int) -> jsonify:
     card = Card.query.get(int(id))
-    if not card or card.user != current_user:
+    if not card or (card.user != current_user and not current_user.admin):
         return {"card_deleted": False}
     db.session.delete(card)
     db.session.commit()
@@ -98,7 +100,7 @@ def remove_card_from_user(id : int) -> jsonify:
 @login_required
 def remove_card_from_deck(id : int) -> jsonify:
     card = Card.query.get(int(id))
-    if not card:
+    if not card or (card.user != current_user and not current_user.admin):
         return {"card_removed": False}
     card.deck_id = None
     db.session.commit()
@@ -108,7 +110,7 @@ def remove_card_from_deck(id : int) -> jsonify:
 @login_required
 def update_card(id: int) -> jsonify:
     card = Card.query.get(int(id))
-    if not card or card.user != current_user:
+    if not card or (card.user != current_user and not current_user.admin):
         return {'card_updated': False}
     updates = request.json
     for column in updates:
@@ -121,7 +123,7 @@ def update_card(id: int) -> jsonify:
 @login_required
 def update_deck(id: int) -> jsonify:
     deck = Deck.query.get(int(id))
-    if not deck or deck.user != current_user:
+    if not deck or (deck.user != current_user and not current_user.admin):
         return {'deck_updated': False}
     updates = request.json
     for column in updates:
