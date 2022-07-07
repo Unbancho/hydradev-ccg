@@ -26,7 +26,7 @@ def get_decks() -> jsonify:
 @login_required
 def get_deck(id: int) -> jsonify:
     deck = Deck.query.get(int(id))
-    if deck and deck.user == current_user or current_user.admin:
+    if deck and (deck.user == current_user or current_user.admin):
         return deck.jsonify()
     return {}
 
