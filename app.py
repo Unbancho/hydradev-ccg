@@ -1,7 +1,7 @@
 from flask import Flask, render_template
 from models import User, Deck, Card, db
 from authentication import auth, login_manager, admin
-from deck_management import decks
+from deck_management import ccg
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -16,7 +16,7 @@ def catch_all(path):
 
 if __name__ == "__main__":
     app.register_blueprint(auth)
-    app.register_blueprint(decks)
+    app.register_blueprint(ccg)
     db.init_app(app)
     login_manager.init_app(app)
     admin.init_app(app)

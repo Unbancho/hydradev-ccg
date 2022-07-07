@@ -1,53 +1,58 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from models import Deck, Card, db
 
 
-decks = Blueprint(name="decks", import_name=__name__, url_prefix="/decks", template_folder='templates')
+ccg = Blueprint(name="decks", import_name=__name__, url_prefix="/ccg", template_folder='templates')
 
-@decks.route("/decks", methods=['POST'])
+@ccg.route("/decks/add", methods=['POST'])
 @login_required
-def add_deck():
+def add_deck() -> jsonify:
     deck_data = request.json
     name = deck_data['name']
     cards = deck_data['cards']
     deck = Deck(name=name, cards=cards)
     current_user.decks.append(deck)
     db.session.commit()
-    return {"deck_created": deck.name}
+    return {"deck_created": True, "deck": deck.jsonify()}
 
-@decks.route("/decks", methods=['GET'])
+@ccg.route("/decks", methods=['GET'])
 @login_required
-def get_decks():
+def get_decks() -> jsonify:
     decks = current_user.decks
-    dictionary = {}
-    for d in decks:
-        dictionary[d.name] = [(c.name, c.power, c.description) for c in d.cards]
-    return dictionary
+    return dict(enumerate([d.jsonify() for d in decks]))
 
-@decks.route("/deck/<id>", methods=['GET'])
+@ccg.route("/decks/<id>", methods=['GET'])
 @login_required
-def get_deck(id):
-    deck = get_by_user_id(id, Deck)
-    return {"name": deck.name, "cards": [c.name for c in deck.cards]}
+def get_deck(id: int) -> jsonify:
+    deck = Deck.query.get(int(id))
+    if deck and deck.user == current_user:
+        return deck.jsonify()
+    return {}
 
-@decks.route("/deck/<id>", methods=['DELETE'])
+@ccg.route("/decks/<id>/delete", methods=['DELETE'])
 @login_required
-def delete_deck(id):
-    deck = get_by_user_id(id, Deck)
+def delete_deck(id: int) -> jsonify:
+    deck = Deck.query.get(int(id))
+    if not deck or deck.user != current_user:
+        return {"deck_deleted": False}
     db.session.delete(deck)
     db.session.commit()
-    return {"deck_deleted": deck.name}
+    return {"deck_deleted": True, "deck": deck.jsonify()}
 
-@decks.route("/cards", methods=['GET'])
+@ccg.route("/cards")
+@ccg.route("/cards/<name>", methods=['GET'])
 @login_required
-def get_cards():
-    cards = current_user.cards
-    return {c.user_id : c.name for c in cards}
+def get_cards(name : str = None) -> jsonify:
+    if name:
+        cards = ((Card.query.filter(Card.user == current_user)).filter(Card.name.contains(name))).all()
+    else:
+        cards = current_user.cards
+    return dict(enumerate([c.jsonify() for c in cards]))
 
-@decks.route("/cards", methods=['POST'])
+@ccg.route("/cards/add", methods=['POST'])
 @login_required
-def add_card_to_user():
+def add_card_to_user() -> jsonify:
     card_data = request.json
     power = card_data['power']
     name = card_data['name']
@@ -55,12 +60,20 @@ def add_card_to_user():
     card = Card(power=power, name=name, description=desc)
     current_user.cards.append(card)
     db.session.commit()
-    return {"card_added": card.name}
+    return {"card_added": True, "card": card.jsonify()}
 
-@decks.route("/card/<id>", methods=['POST'])
+@ccg.route("/decks/<deck_id>/add", methods=['POST'])
+@ccg.route("/decks/<deck_id>/add/<card_id>", methods=['POST'])
 @login_required
-def add_card_to_deck(id):
-    deck = get_by_user_id(id, Deck)
+def add_card_to_deck(deck_id : int, card_id : int =None) -> jsonify:
+    deck = Deck.query.get(int(deck_id))
+    if card_id:
+        card = Card.query.get(int(card_id))
+        deck.cards.append(card)
+        db.session.commit()
+        return {"card_added": True, "card": card.jsonify(), "deck": deck.jsonify()}
+    if not request.json:
+        return {"card_added": False}
     card_data = request.json
     power = card_data['power']
     name = card_data['name']
@@ -68,24 +81,51 @@ def add_card_to_deck(id):
     card = Card(power=power, name=name, description=desc)
     deck.cards.append(card)
     db.session.commit()
-    return {"card_added": card.name, "deck": deck.name}
+    return {"card_added": True, "card": card.jsonify(), "deck": deck.jsonify()}
 
-@decks.route("/card/<id>", methods=['DELETE'])
+@ccg.route("/cards/<id>", methods=['DELETE'])
 @login_required
-def remove_card_from_user(id):
-    card = get_by_user_id(id, Card)
+def remove_card_from_user(id : int) -> jsonify:
+    card = Card.query.get(int(id))
+    if not card or card.user != current_user:
+        return {"card_deleted": False}
     db.session.delete(card)
     db.session.commit()
-    return {"card_deleted": card.name}
+    return {"card_deleted": True, "card": card.jsonify()}
 
-@decks.route("/card/<deck_id>/<card_id>", methods=['DELETE'])
+# TODO: Return False when card was already isolated.
+@ccg.route("/cards/<id>/isolate", methods=['PUT'])
 @login_required
-def remove_card_from_deck(deck_id, card_id):
-    deck = get_by_user_id(deck_id, Deck)
-    card = (Card.query.filter(Card.deck == deck)).filter_by(deck_id=card_id).first()    
-    db.session.delete(card)
+def remove_card_from_deck(id : int) -> jsonify:
+    card = Card.query.get(int(id))
+    if not card:
+        return {"card_removed": False}
+    card.deck_id = None
     db.session.commit()
-    return {"card_deleted": card.name}
+    return {"card_removed": True, "card": card.jsonify()}
 
-def get_by_user_id(id, model):
-    return (model.query.filter(model.user == current_user)).filter_by(user_id=id).first()
+@ccg.route("/cards/<id>/update", methods=['PUT'])
+@login_required
+def update_card(id: int) -> jsonify:
+    card = Card.query.get(int(id))
+    if not card or card.user != current_user:
+        return {'card_updated': False}
+    updates = request.json
+    for column in updates:
+        if updates[column] and hasattr(card, column):
+            setattr(card, column, updates[column])
+    db.session.commit()
+    return {'card_updated': True, 'card': card.jsonify()}
+
+@ccg.route("/decks/<id>/update", methods=['PUT'])
+@login_required
+def update_deck(id: int) -> jsonify:
+    deck = Deck.query.get(int(id))
+    if not deck or deck.user != current_user:
+        return {'deck_updated': False}
+    updates = request.json
+    for column in updates:
+        if updates[column] and hasattr(deck, column):
+            setattr(deck, column, updates[column])
+    db.session.commit()
+    return {'deck_updated': True, 'deck': deck.jsonify()}
