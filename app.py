@@ -1,5 +1,5 @@
 from flask import Flask, render_template
-from models import User, Deck, Card, db
+from models import db
 from authentication import auth, login_manager, admin
 from deck_management import ccg
 
@@ -21,4 +21,4 @@ if __name__ == "__main__":
     login_manager.init_app(app)
     admin.init_app(app)
 
-    app.run(debug=True)
+    app.run(debug=True, ssl_context="adhoc")

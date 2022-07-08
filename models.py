@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+
 class Card(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     power = db.Column(db.Integer, nullable=False)
@@ -24,6 +25,7 @@ class Deck(db.Model):
     def jsonify(self) -> dict:
         return {'id': self.id, 'name': self.name, 'cards': [c.jsonify() for c in self.cards], 'user_id': self.user_id}
 
+
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(), nullable=False, unique=True)
@@ -34,7 +36,13 @@ class User(db.Model, UserMixin):
     admin = db.Column(db.Boolean, default=False)
 
     def jsonify(self) -> dict:
-        return {'id': self.id, 'username': self.username, 'real_name': self.real_name, 'decks': [d.jsonify() for d in self.decks], 'cards': [c.jsonify() for c in self.cards]}
+        return {
+                    'id': self.id,
+                    'username': self.username,
+                    'real_name': self.real_name,
+                    'decks': [d.jsonify() for d in self.decks],
+                    'cards': [c.jsonify() for c in self.cards]
+                }
 
     def is_admin(self) -> bool:
         return self.admin
