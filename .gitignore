@@ -3,3 +3,5 @@ __pycache__/
 .vscode/
 database.db
 templates/
+.idea/
+error_messages.txt
