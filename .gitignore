@@ -1,4 +1,5 @@
 .venv
+.codevenv
 __pycache__/
 .vscode/
 database.db
