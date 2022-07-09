@@ -16,8 +16,8 @@ def catch_all(path):
 
 
 def build_crud_routes(crud: CRUD, _app: Flask):
-    app.add_url_rule(crud.prefix, endpoint=f'{crud.prefix}', view_func=crud.manager, methods=crud.methods)
-    app.add_url_rule(crud.prefix+'/<id>', endpoint=f'{crud.prefix}/<id>', view_func=crud.manager, methods=crud.methods)
+    app.add_url_rule(crud.prefix, endpoint=crud.prefix, view_func=crud.manager, methods=crud.methods)
+    app.add_url_rule(crud.prefix+'/<id>', endpoint=crud.prefix+'/<id>', view_func=crud.manager, methods=crud.methods)
 
 
 if __name__ == "__main__":

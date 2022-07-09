@@ -31,12 +31,22 @@ class Decks(CRUD):
 
     def read(self, **kwargs) -> jsonify:
         id = kwargs.get('id')
-        return Response(*self._get_one_deck(int(id))) if id else Response(*self._get_decks(kwargs.get('filter')))
+        return Response(*self._get_one_deck(int(id))) if id else Response(*self._get_decks(kwargs.get('args')))
 
-    # TODO: Filtering (by name).
     @staticmethod
-    def _get_decks(filter) -> (bool, dict):
-        return True, dict(enumerate([d.jsonify() for d in current_user.decks]))
+    def _get_decks(args) -> (bool, dict):
+        decks = None
+        if current_user.admin and (user := args.get('user')):
+            decks = Deck.query.filter(Deck.user == User.query.get(user))
+        if name := args.get('name'):
+            if not decks:
+                decks = Deck.query.filter(Deck.user == current_user)
+            decks = decks.filter(Deck.name.contains(name)).all()
+            return bool(decks), [d.jsonify() for d in decks]
+        if not decks:
+            return bool(decks), [d.jsonify() for d in current_user.decks]
+        decks = decks.all()
+        return bool(decks), decks
 
     def _get_one_deck(self, id: int) -> (bool, jsonify, str):
         if not (deck := Deck.query.get(id)):
@@ -97,7 +107,9 @@ class Cards(CRUD):
             if not has_access_to_data(card, True):
                 return Response(message=Unauthorized)
             return Response(True, card.jsonify())
-        if substring := kwargs.get('substring'):
+        args = kwargs.get('args')
+
+        if substring := args.get('name'):
             # TODO: Figure out how to filter directly from user.
             cards = ((Card.query.filter(Card.user == current_user)).filter(Card.name.contains(substring))).all()
         else:

@@ -36,5 +36,4 @@ class CRUD:
     def manager(self, id: int = None, **kwargs) -> jsonify:
         mappings = {"GET": self.read, "PUT": self.update,
                     "POST": self.create, "DELETE": self.delete}
-        method = request.method
-        return mappings[method](id=id, **kwargs)
+        return mappings[request.method](id=id, args=request.args, **kwargs)
