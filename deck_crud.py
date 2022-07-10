@@ -35,18 +35,10 @@ class Decks(CRUD):
 
     @staticmethod
     def _get_decks(args) -> (bool, dict):
-        decks = None
-        if current_user.admin and (user := args.get('user')):
-            decks = Deck.query.filter(Deck.user == User.query.get(user))
-        if name := args.get('name'):
-            if not decks:
-                decks = Deck.query.filter(Deck.user == current_user)
-            decks = decks.filter(Deck.name.contains(name)).all()
-            return bool(decks), [d.jsonify() for d in decks]
-        if not decks:
-            return bool(decks), [d.jsonify() for d in current_user.decks]
-        decks = decks.all()
-        return bool(decks), decks
+        if not args:
+            return True, [d.jsonify() for d in current_user.decks]
+        decks = filter_model(Card, args, True)
+        return True, [d.jsonify() for d in decks]
 
     def _get_one_deck(self, id: int) -> (bool, jsonify, str):
         if not (deck := Deck.query.get(id)):
@@ -101,20 +93,22 @@ class Cards(CRUD):
 
     def read(self, **kwargs) -> jsonify:
         id = kwargs.get('id')
-        if id:
-            if not (card := Card.query.get(int(id))):
-                return Response(message=NoWithID)
-            if not has_access_to_data(card, True):
-                return Response(message=Unauthorized)
-            return Response(True, card.jsonify())
-        args = kwargs.get('args')
+        return Response(*self._get_one_card(int(id))) if id else Response(*self._get_cards(kwargs.get('args')))
 
-        if substring := args.get('name'):
-            # TODO: Figure out how to filter directly from user.
-            cards = ((Card.query.filter(Card.user == current_user)).filter(Card.name.contains(substring))).all()
-        else:
-            cards = current_user.cards
-        return Response(True, dict(enumerate([c.jsonify() for c in cards])))
+    @staticmethod
+    def _get_cards(args) -> (bool, dict):
+        if not args:
+            return True, [c.jsonify() for c in current_user.cards]
+        cards = filter_model(Card, args, True)
+        return True, [c.jsonify() for c in cards]
+
+    @staticmethod
+    def _get_one_card(id: int) -> (bool, jsonify, str):
+        if not (card := Card.query.get(id)):
+            return False, None, NoWithID
+        if not has_access_to_data(card, True):
+            return False, None, Unauthorized
+        return True, card.jsonify()
 
     def update(self, **kwargs) -> jsonify:
         data = request.json
@@ -137,6 +131,17 @@ class Cards(CRUD):
         db.session.delete(card)
         db.session.commit()
         return Response(True)
+
+
+def filter_model(model, filters, admin_override=False):
+    if admin_override and current_user.admin and (user := filters.get('user')):
+        user = User.query.get(user)
+        result = model.query.filter(model.user == user)
+    else:
+        result = model.query.filter(model.user == current_user)
+    for f in filters:
+        result = result.filter(getattr(model, f).contains(filters[f]))
+    return result.all()
 
 
 class Users(CRUD):
