@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask
 from models import db
 from authentication import auth, login_manager, admin
 from crud import CRUD
@@ -12,7 +12,7 @@ app.config['SECRET_KEY'] = 'GWENT'
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def catch_all(path):
-    return render_template('index.html')
+    return app.send_static_file("collection.html")
 
 
 def build_crud_routes(crud: CRUD, _app: Flask):
@@ -25,8 +25,6 @@ if __name__ == "__main__":
     db.init_app(app)
     login_manager.init_app(app)
     admin.init_app(app)
-
     build_crud_routes(Decks(), app)
     build_crud_routes(Cards(), app)
-
     app.run(debug=True)  # TODO: , ssl_context="adhoc")

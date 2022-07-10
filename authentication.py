@@ -34,7 +34,7 @@ def needs_auth_data(func):
     return _inner
 
 
-@auth.route('/login', endpoint="login", methods=['POST'])
+@auth.post('/login', endpoint="login")
 @needs_auth_data
 def login(username: str, password: str) -> jsonify:
     user = User.query.filter_by(username=username).first()
@@ -44,7 +44,7 @@ def login(username: str, password: str) -> jsonify:
     return Response(login_user(load_user(user.id)))
 
 
-@auth.route('/register', endpoint="register", methods=['POST'])
+@auth.post('/register', endpoint="register")
 @needs_auth_data
 def register(username: str, password: str) -> jsonify:
     register_data = request.form

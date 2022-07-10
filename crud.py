@@ -1,5 +1,6 @@
 from flask import jsonify, request
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import login_required
 
 
 class CRUD:
@@ -8,6 +9,8 @@ class CRUD:
         self.prefix = prefix
         self.methods = methods
         self.database = database
+        self.mappings = {"GET": self.read, "PUT": self.update,
+                         "POST": self.create, "DELETE": self.delete}
 
     def create(self, **kwargs) -> jsonify:
         self._check_implemented('POST')
@@ -33,7 +36,6 @@ class CRUD:
                 setattr(obj, column, data[column])
         return obj, old_obj != obj
 
+    @login_required
     def manager(self, id: int = None, **kwargs) -> jsonify:
-        mappings = {"GET": self.read, "PUT": self.update,
-                    "POST": self.create, "DELETE": self.delete}
-        return mappings[request.method](id=id, args=request.args, **kwargs)
+        return self.mappings[request.method](id=id, args=request.args, **kwargs)
