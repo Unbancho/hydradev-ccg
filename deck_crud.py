@@ -140,9 +140,11 @@ def filter_model(model, filters, admin_override=False):
     else:
         result = model.query.filter(model.user == current_user)
     for f in filters:
-        result = result.filter(getattr(model, f).contains(filters[f]))
+        if hasattr(model, f):
+            result = result.filter(getattr(model, f).contains(filters[f]))
     return result.all()
 
 
+# TODO: Admin functionality.
 class Users(CRUD):
     pass

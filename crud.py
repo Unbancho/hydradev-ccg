@@ -31,7 +31,7 @@ class CRUD:
         for column in data:
             if hasattr(obj, column):
                 setattr(obj, column, data[column])
-        return obj, old_obj == obj
+        return obj, old_obj != obj
 
     def manager(self, id: int = None, **kwargs) -> jsonify:
         mappings = {"GET": self.read, "PUT": self.update,
