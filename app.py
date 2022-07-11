@@ -28,4 +28,4 @@ if __name__ == "__main__":
     build_crud_routes(Decks(), app)
     build_crud_routes(Cards(), app)
     build_crud_routes(Users(), app)
-    app.run(debug=True)  # TODO: , ssl_context="adhoc")
+    app.run(debug=True, ssl_context="adhoc")
