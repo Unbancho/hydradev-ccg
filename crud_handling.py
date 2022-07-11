@@ -3,7 +3,7 @@ from response import Response
 from models import User, Deck, Card, db
 from flask_login import current_user
 from flask import jsonify, request, abort
-from authentication import has_access_to_data, bcrypt, auth
+from authentication import has_access_to_data, bcrypt
 
 Unauthorized = "Unauthorized."
 NoWithID = "Doesn't exist."
@@ -58,7 +58,7 @@ class Decks(CRUD):
         if not (deck := Deck.query.get(try_int(id))):
             return Response(message=NoWithID), 404
         if not has_access_to_data(deck, True):
-            return Response(message=Unauthorized), 401
+            return Response(message=Unauthorized), 403
         old = deck.jsonify()
         deck = CRUD._update_model(deck, data)
         db.session.commit()
@@ -71,7 +71,7 @@ class Decks(CRUD):
         if not (deck := Deck.query.get(try_int(id))):
             return Response(message=NoWithID), 404
         if not has_access_to_data(deck, True):
-            return Response(message=Unauthorized), 401
+            return Response(message=Unauthorized), 403
         db.session.delete(deck)
         db.session.commit()
         return Response(message=f"Deleted {deck.name}"), 200
@@ -114,7 +114,7 @@ class Cards(CRUD):
         if not (card := Card.query.get(id)):
             return Response(message=NoWithID), 404
         if not has_access_to_data(card, True):
-            return Response(message=Unauthorized), 401
+            return Response(message=Unauthorized), 403
         return Response(card.jsonify()), 200
 
     # TODO: Fix adding to deck that doesn't exist.
@@ -124,7 +124,7 @@ class Cards(CRUD):
         if not (card := Card.query.get(try_int(id))):
             return Response(message=NoWithID), 404
         if not has_access_to_data(card, True):
-            return Response(message=Unauthorized), 401
+            return Response(message=Unauthorized), 403
         if deck_id := data.get('deck_id'):
             if not (deck := Deck.query.get(try_int(deck_id))) or not has_access_to_data(deck, True):
                 return Response(message=NoWithID), 404
@@ -138,7 +138,7 @@ class Cards(CRUD):
         if not (card := Card.query.get(try_int(id))):
             return Response(message=NoWithID), 404
         if not has_access_to_data(card, True):
-            return Response(message=Unauthorized), 401
+            return Response(message=Unauthorized), 403
         db.session.delete(card)
         db.session.commit()
         return Response(message=f"Deleted {card.name}"), 200
@@ -166,7 +166,7 @@ class Users(CRUD):
     def needs_admin(func):
         def _inner(self, id: int = None, **kwargs):
             if not current_user.admin:
-                return Response(message="Permission Denied."), 401
+                return Response(message="Permission Denied."), 403
             return func(self, **({'id': id} | kwargs))
 
         return _inner
