@@ -2,7 +2,7 @@ from flask import Flask
 from models import db
 from authentication import auth, login_manager, admin
 from crud import CRUD
-from deck_crud import Decks, Cards
+from crud_handling import Decks, Cards, Users
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -27,4 +27,5 @@ if __name__ == "__main__":
     admin.init_app(app)
     build_crud_routes(Decks(), app)
     build_crud_routes(Cards(), app)
+    build_crud_routes(Users(), app)
     app.run(debug=True)  # TODO: , ssl_context="adhoc")

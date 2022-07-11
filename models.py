@@ -10,7 +10,7 @@ class Card(db.Model):
     name = db.Column(db.String(), nullable=False)
     description = db.Column(db.String(), nullable=False)
     deck_id = db.Column(db.Integer, db.ForeignKey('deck.id'), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), nullable=True)
 
     def jsonify(self) -> dict:
         return {
@@ -27,7 +27,7 @@ class Deck(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(), nullable=False)
     cards = db.relationship("Card", backref='deck')
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), nullable=False)
 
     def jsonify(self) -> dict:
         return {

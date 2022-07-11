@@ -15,7 +15,7 @@ bcrypt = Bcrypt()
 
 class UserAdminView(ModelView):
     form_edit_rules = ('username', 'decks', 'cards', 'admin')
-    column_list = {'username', 'decks', 'cards', 'admin'}
+    column_list = {'username', 'real_name', 'decks', 'cards', 'admin'}
 
 
 # TODO: Finish.
