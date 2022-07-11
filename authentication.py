@@ -84,4 +84,4 @@ def load_user(id) -> User:
 
 
 def has_access_to_data(data, admin_override=False) -> bool:
-    return data.user == current_user or admin_override and current_user == admin_override
+    return data.user == current_user or admin_override and current_user.admin
