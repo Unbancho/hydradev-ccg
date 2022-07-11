@@ -6,5 +6,5 @@ database.db
 templates/
 .idea/
 error_messages.txt
-static/
+static
 
