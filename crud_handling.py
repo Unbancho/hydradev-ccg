@@ -2,8 +2,8 @@ from crud import CRUD
 from response import Response
 from models import User, Deck, Card, db
 from flask_login import current_user
-from flask import jsonify, request
-from authentication import has_access_to_data, bcrypt
+from flask import jsonify, request, abort
+from authentication import has_access_to_data, bcrypt, auth
 
 Unauthorized = "Unauthorized."
 NoWithID = "Doesn't exist."
@@ -18,15 +18,13 @@ class Decks(CRUD):
 
     def create(self, **kwargs) -> jsonify:
         data = request.json
-        # TODO: Deck name validation.
         if not (n := data.get('name')):
             return Response(message=NotProvided+'name'), 400
         name = n
         cards = data.get('cards', [])
-        # TODO: Validate cards.
         deck = Deck(name=name, cards=cards)
         if (id := kwargs.get('args').get('user')) and current_user.admin:
-            user = User.query.get(int(id))
+            user = User.query.get(try_int(id))
         else:
             user = current_user
         user.decks.append(deck)
@@ -35,7 +33,7 @@ class Decks(CRUD):
 
     def read(self, **kwargs) -> jsonify:
         id = kwargs.get('id')
-        return self._get_one_deck(int(id)) if id else self._get_decks(kwargs.get('args'))
+        return self._get_one_deck(try_int(id)) if id else self._get_decks(kwargs.get('args'))
 
     @staticmethod
     def _get_decks(args) -> (bool, dict):
@@ -57,7 +55,7 @@ class Decks(CRUD):
         id = kwargs.get('id')
         if not id:
             return Response(message=NotProvided+'id'), 400
-        if not (deck := Deck.query.get(int(id))):
+        if not (deck := Deck.query.get(try_int(id))):
             return Response(message=NoWithID), 404
         if not has_access_to_data(deck, True):
             return Response(message=Unauthorized), 401
@@ -70,7 +68,7 @@ class Decks(CRUD):
         id = kwargs.get('id')
         if not id:
             return Response(message=NotProvided+'id'), 400
-        if not (deck := Deck.query.get(int(id))):
+        if not (deck := Deck.query.get(try_int(id))):
             return Response(message=NoWithID), 404
         if not has_access_to_data(deck, True):
             return Response(message=Unauthorized), 401
@@ -91,9 +89,9 @@ class Cards(CRUD):
         if not (power := data.get('power')):
             return Response(message=NotProvided+'power'), 400
         desc = data.get('description', '')  # Some cards might just be Beatsticks.
-        card = Card(power=power, name=name, description=desc)
+        card = Card(power=try_int(power), name=name, description=desc)
         if (id := kwargs.get('args').get('user')) and current_user.admin:
-            user = User.query.get(int(id))
+            user = User.query.get(try_int(id))
         else:
             user = current_user
         user.cards.append(card)
@@ -102,7 +100,7 @@ class Cards(CRUD):
 
     def read(self, **kwargs) -> jsonify:
         id = kwargs.get('id')
-        return self._get_one_card(int(id)) if id else self._get_cards(kwargs.get('args'))  # id overrides query
+        return self._get_one_card(try_int(id)) if id else self._get_cards(kwargs.get('args'))  # id overrides query
 
     @staticmethod
     def _get_cards(args) -> (bool, dict):
@@ -119,21 +117,25 @@ class Cards(CRUD):
             return Response(message=Unauthorized), 401
         return Response(card.jsonify()), 200
 
+    # TODO: Fix adding to deck that doesn't exist.
     def update(self, **kwargs) -> jsonify:
         data = request.json
         id = kwargs.get('id')
-        if not (card := Card.query.get(int(id))):
+        if not (card := Card.query.get(try_int(id))):
             return Response(message=NoWithID), 404
         if not has_access_to_data(card, True):
             return Response(message=Unauthorized), 401
-        old = card
+        if deck_id := data.get('deck_id'):
+            if not (deck := Deck.query.get(try_int(deck_id))) or not has_access_to_data(deck, True):
+                return Response(message=NoWithID), 404
+        old = card.jsonify()
         card = CRUD._update_model(card, data)
         db.session.commit()
-        return Response(data=card.jsonify(), message=None if old != card else NoAlterations), 200
+        return Response(data=card.jsonify(), message=None if old != card.jsonify() else NoAlterations), 200
 
     def delete(self, **kwargs) -> jsonify:
         id = kwargs.get('id')
-        if not (card := Card.query.get(int(id))):
+        if not (card := Card.query.get(try_int(id))):
             return Response(message=NoWithID), 404
         if not has_access_to_data(card, True):
             return Response(message=Unauthorized), 401
@@ -145,7 +147,7 @@ class Cards(CRUD):
 def filter_model(model, filters, admin_override=False):
     filters = dict(filters)
     if admin_override and current_user.admin and (user := filters.pop('user', None)):
-        user = User.query.get(int(user))
+        user = User.query.get(try_int(user))
         result = model.query.filter(model.user == user)
     else:
         result = model.query.filter(model.user == current_user)
@@ -155,7 +157,6 @@ def filter_model(model, filters, admin_override=False):
     return result.all()
 
 
-# TODO: Admin functionality.
 class Users(CRUD):
 
     def __init__(self):
@@ -189,7 +190,7 @@ class Users(CRUD):
 
     @needs_admin
     def read(self, id: int = None, **kwargs) -> jsonify:
-        return self._get_one_user(int(id)) if id else self._get_users(kwargs.get('args'))  # id overrides query
+        return self._get_one_user(try_int(id)) if id else self._get_users(kwargs.get('args'))  # id overrides query
 
     @staticmethod
     def _get_one_user(id: int):
@@ -212,7 +213,7 @@ class Users(CRUD):
     @needs_admin
     def update(self, id: int, **kwargs) -> jsonify:
         data = request.json
-        if not (user := User.query.get(int(id))):
+        if not (user := User.query.get(try_int(id))):
             return Response(message=NoWithID), 404
         old = user.jsonify()
         user = CRUD._update_model(user, data)
@@ -221,9 +222,15 @@ class Users(CRUD):
 
     @needs_admin
     def delete(self, id: int, **kwargs) -> jsonify:
-        if not (user := User.query.get(int(id))):
+        if not (user := User.query.get(try_int(id))):
             return Response(message=NoWithID), 404
         db.session.delete(user)
         db.session.commit()
         return Response(message=f"Deleted {user.username}"), 200
 
+
+def try_int(i):
+    try:
+        return int(i)
+    except ValueError:
+        abort(400)

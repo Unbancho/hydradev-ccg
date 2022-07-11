@@ -13,16 +13,20 @@ login_manager = LoginManager()
 bcrypt = Bcrypt()
 
 
-class UserAdminView(ModelView):
+class ProtectedView(ModelView):
+    def is_accessible(self):
+        return current_user.admin and current_user.is_authenticated
+
+
+class UserAdminView(ProtectedView):
     form_edit_rules = ('username', 'decks', 'cards', 'admin')
     column_list = {'username', 'real_name', 'decks', 'cards', 'admin'}
 
 
-# TODO: Finish.
 admin = Admin()
 admin.add_view(UserAdminView(User, db.session))
-admin.add_view(ModelView(Deck, db.session))
-admin.add_view(ModelView(Card, db.session))
+admin.add_view(ProtectedView(Deck, db.session))
+admin.add_view(ProtectedView(Card, db.session))
 
 
 def needs_auth_data(func):
@@ -55,7 +59,7 @@ def register(username: str, password: str) -> jsonify:
         return Response(message="No real name provided."), 400
     if User.query.filter_by(username=username).first():
         return Response(message=f"{username} is taken."), 400
-    p_hash = bcrypt.generate_password_hash(password)  # TODO: check.
+    p_hash = bcrypt.generate_password_hash(password)
     user = User(username=username, hash=p_hash, real_name=real_name)
     db.session.add(user)
     db.session.commit()
