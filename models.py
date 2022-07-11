@@ -10,7 +10,7 @@ class Card(db.Model):
     name = db.Column(db.String(), nullable=False)
     description = db.Column(db.String(), nullable=False)
     deck_id = db.Column(db.Integer, db.ForeignKey('deck.id'), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
     def jsonify(self) -> dict:
         return {
@@ -27,7 +27,7 @@ class Deck(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(), nullable=False)
     cards = db.relationship("Card", backref='deck')
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     def jsonify(self) -> dict:
         return {
@@ -43,8 +43,8 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(), nullable=False, unique=True)
     hash = db.Column(db.String(), nullable=False)
     real_name = db.Column(db.String(), nullable=False)
-    decks = db.relationship("Deck", backref='user')
-    cards = db.relationship("Card", backref='user')
+    decks = db.relationship("Deck", backref='user', cascade="all, delete-orphan")
+    cards = db.relationship("Card", backref='user', cascade="all, delete-orphan")
     admin = db.Column(db.Boolean, default=False)
 
     def jsonify(self) -> dict:
@@ -53,5 +53,6 @@ class User(db.Model, UserMixin):
                     'username': self.username,
                     'real_name': self.real_name,
                     'decks': [d.jsonify() for d in self.decks],
-                    'cards': [c.jsonify() for c in self.cards]
+                    'cards': [c.jsonify() for c in self.cards],
+                    'admin': self.admin
                 }

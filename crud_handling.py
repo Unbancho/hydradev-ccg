@@ -25,13 +25,17 @@ class Decks(CRUD):
         cards = data.get('cards', [])
         # TODO: Validate cards.
         deck = Deck(name=name, cards=cards)
-        current_user.decks.append(deck)
+        if (id := kwargs.get('args').get('user')) and current_user.admin:
+            user = User.query.get(int(id))
+        else:
+            user = current_user
+        user.decks.append(deck)
         db.session.commit()
         return Response(data=deck.jsonify()), 201
 
     def read(self, **kwargs) -> jsonify:
         id = kwargs.get('id')
-        return self._get_one_deck(int(id)), 200 if id else self._get_decks(kwargs.get('args')), 200
+        return self._get_one_deck(int(id)) if id else self._get_decks(kwargs.get('args'))
 
     @staticmethod
     def _get_decks(args) -> (bool, dict):
@@ -41,7 +45,7 @@ class Decks(CRUD):
         return Response([d.jsonify() for d in decks]), 200
 
     @staticmethod
-    def _get_one_deck(self, id: int) -> (bool, jsonify, str):
+    def _get_one_deck(id: int) -> (bool, jsonify, str):
         if not (deck := Deck.query.get(id)):
             return Response(message=NoWithID)
         if not has_access_to_data(deck, True):
@@ -57,10 +61,10 @@ class Decks(CRUD):
             return Response(message=NoWithID), 404
         if not has_access_to_data(deck, True):
             return Response(message=Unauthorized), 401
-        old = deck
+        old = deck.jsonify()
         deck = CRUD._update_model(deck, data)
         db.session.commit()
-        return Response(data=deck, message=None if deck != old else NoAlterations), 200
+        return Response(data=deck.jsonify(), message=None if deck.jsonify() != old else NoAlterations), 200
 
     def delete(self, **kwargs) -> jsonify:
         id = kwargs.get('id')
@@ -88,7 +92,11 @@ class Cards(CRUD):
             return Response(message=NotProvided+'power'), 400
         desc = data.get('description', '')  # Some cards might just be Beatsticks.
         card = Card(power=power, name=name, description=desc)
-        current_user.cards.append(card)
+        if (id := kwargs.get('args').get('user')) and current_user.admin:
+            user = User.query.get(int(id))
+        else:
+            user = current_user
+        user.cards.append(card)
         db.session.commit()
         return Response(card.jsonify()), 201
 
@@ -136,7 +144,7 @@ class Cards(CRUD):
 
 def filter_model(model, filters, admin_override=False):
     filters = dict(filters)
-    if admin_override and current_user.admin and (user := filters.pop('user')):
+    if admin_override and current_user.admin and (user := filters.pop('user', None)):
         user = User.query.get(int(user))
         result = model.query.filter(model.user == user)
     else:
@@ -158,7 +166,7 @@ class Users(CRUD):
         def _inner(self, id: int = None, **kwargs):
             if not current_user.admin:
                 return Response(message="Permission Denied."), 401
-            return func(self, id, **kwargs)
+            return func(self, **({'id': id} | kwargs))
 
         return _inner
 
@@ -174,41 +182,48 @@ class Users(CRUD):
         if User.query.filter_by(username=username).first():
             return Response(message=f"{username} is taken."), 400
         p_hash = bcrypt.generate_password_hash(password)  # TODO: check.
-        user = User(username=username, hash=p_hash, real_name=real_name)
+        user = User(username=username, hash=p_hash, real_name=real_name, admin=data.get('admin', False))
         db.session.add(user)
         db.session.commit()
         return Response(user.jsonify()), 201
 
     @needs_admin
     def read(self, id: int = None, **kwargs) -> jsonify:
-        id = kwargs.get('id')
         return self._get_one_user(int(id)) if id else self._get_users(kwargs.get('args'))  # id overrides query
 
-    @needs_admin
-    def _get_one_user(self, id: int):
-        pass
+    @staticmethod
+    def _get_one_user(id: int):
+        if not (user := User.query.get(id)):
+            return Response(message=NoWithID), 404
+        return Response(user.jsonify()), 200
 
-    @needs_admin
-    def _get_users(self, args):
-        pass
+    @staticmethod
+    def _get_users(args):
+        if not args:
+            return Response([u.jsonify() for u in User.query.all()]), 200
+        result = User.query
+        for f in (filters := dict(args)):
+            if hasattr(User, f):
+                result = result.filter(getattr(User, f).contains(filters[f]))
+        if result == User.query:
+            result = {}
+        return Response([u.jsonify() for u in result.all()]), 200
 
     @needs_admin
     def update(self, id: int, **kwargs) -> jsonify:
         data = request.json
-        id = kwargs.get('id')
         if not (user := User.query.get(int(id))):
             return Response(message=NoWithID), 404
-        old = user
+        old = user.jsonify()
         user = CRUD._update_model(user, data)
         db.session.commit()
-        return Response(data=user.jsonify(), message=None if old != user else NoAlterations), 200
+        return Response(data=user.jsonify(), message=None if old != user.jsonify() else NoAlterations), 200
 
     @needs_admin
     def delete(self, id: int, **kwargs) -> jsonify:
-        id = kwargs.get('id')
         if not (user := User.query.get(int(id))):
             return Response(message=NoWithID), 404
         db.session.delete(user)
         db.session.commit()
-        return Response(message=f"Deleted {user.name}"), 200
+        return Response(message=f"Deleted {user.username}"), 200
 

@@ -42,7 +42,9 @@ def login(username: str, password: str) -> jsonify:
     authenticated = user and bcrypt.check_password_hash(user.hash, password)
     if not authenticated:
         return Response(message="Authentication failed."), 401
-    return Response(), 200 if login_user(load_user(user.id)) else 401
+    if login_user(load_user(user.id)):
+        return Response(message=f"Logged in. Welcome, {user.real_name}"), 200
+    return Response(message="Login failed!"), 401
 
 
 @auth.post('/register', endpoint="register")
@@ -57,7 +59,7 @@ def register(username: str, password: str) -> jsonify:
     user = User(username=username, hash=p_hash, real_name=real_name)
     db.session.add(user)
     db.session.commit()
-    return Response(), 201
+    return Response(message=f"Successfully registered."), 201
 
 
 @auth.get("/logout")
