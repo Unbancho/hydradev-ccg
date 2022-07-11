@@ -30,11 +30,10 @@ class CRUD:
 
     @staticmethod
     def _update_model(obj, data):
-        old_obj = obj
         for column in data:
             if hasattr(obj, column):
                 setattr(obj, column, data[column])
-        return obj, old_obj != obj
+        return obj
 
     @login_required
     def manager(self, id: int = None, **kwargs) -> jsonify:

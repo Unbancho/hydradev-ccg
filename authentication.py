@@ -15,6 +15,7 @@ bcrypt = Bcrypt()
 
 class UserAdminView(ModelView):
     form_edit_rules = ('username', 'decks', 'cards', 'admin')
+    column_list = {'username', 'decks', 'cards', 'admin'}
 
 
 # TODO: Finish.
@@ -27,9 +28,9 @@ admin.add_view(ModelView(Card, db.session))
 def needs_auth_data(func):
     def _inner():
         if not (username := request.form.get("username")):
-            return Response(message="No username provided.")
+            return Response(message="No username provided."), 400
         if not (password := request.form.get("password")):
-            return Response(message="No password provided.")
+            return Response(message="No password provided."), 400
         return func(username, password)
     return _inner
 
@@ -40,8 +41,8 @@ def login(username: str, password: str) -> jsonify:
     user = User.query.filter_by(username=username).first()
     authenticated = user and bcrypt.check_password_hash(user.hash, password)
     if not authenticated:
-        return Response(message="Authentication failed.")
-    return Response(login_user(load_user(user.id)))
+        return Response(message="Authentication failed."), 401
+    return Response(), 200 if login_user(load_user(user.id)) else 401
 
 
 @auth.post('/register', endpoint="register")
@@ -49,26 +50,26 @@ def login(username: str, password: str) -> jsonify:
 def register(username: str, password: str) -> jsonify:
     register_data = request.form
     if not (real_name := register_data.get("real_name")):
-        return Response(message="No real name provided.")
+        return Response(message="No real name provided."), 400
     if User.query.filter_by(username=username).first():
-        return Response(message="That username is taken.")
+        return Response(message=f"{username} is taken."), 400
     p_hash = bcrypt.generate_password_hash(password)  # TODO: check.
     user = User(username=username, hash=p_hash, real_name=real_name)
     db.session.add(user)
     db.session.commit()
-    return Response(True)
+    return Response(), 201
 
 
-@auth.route("/logout")
+@auth.get("/logout")
 @login_required
 def logout() -> jsonify:
-    return Response(logout_user())
+    return Response(logout_user()), 200
 
 
-@auth.route("/current")
+@auth.get("/current")
 @login_required
 def get_current_user() -> jsonify:
-    return Response(True, current_user.jsonify())
+    return Response(current_user.jsonify()), 200
 
 
 @login_manager.user_loader

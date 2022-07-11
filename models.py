@@ -13,7 +13,14 @@ class Card(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
     def jsonify(self) -> dict:
-        return {'id': self.id, 'power': self.power, 'name': self.name, 'description': self.description, 'deck_id': self.deck_id, 'user_id': self.user_id}
+        return {
+                    'id': self.id,
+                    'power': self.power,
+                    'name': self.name,
+                    'description': self.description,
+                    'deck_id': self.deck_id,
+                    'user_id': self.user_id
+                }
 
 
 class Deck(db.Model):
@@ -23,7 +30,12 @@ class Deck(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     def jsonify(self) -> dict:
-        return {'id': self.id, 'name': self.name, 'cards': [c.jsonify() for c in self.cards], 'user_id': self.user_id}
+        return {
+                    'id': self.id,
+                    'name': self.name,
+                    'cards': [c.jsonify() for c in self.cards],
+                    'user_id': self.user_id
+                }
 
 
 class User(db.Model, UserMixin):
@@ -43,6 +55,3 @@ class User(db.Model, UserMixin):
                     'decks': [d.jsonify() for d in self.decks],
                     'cards': [c.jsonify() for c in self.cards]
                 }
-
-    def is_admin(self) -> bool:
-        return self.admin
