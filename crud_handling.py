@@ -24,27 +24,7 @@ class FilterableCRUD(CRUD):
         raise NotImplementedError
 
 
-class RestrictedFilterableCRUD(FilterableCRUD):
-    # TODO: bad request handle JSON
-    def _filter(self, args):
-        if not args:
-            return self.model.query.filter(self.model.user_id == current_user.id)
-        query = self.model.query
-        for arg in args:
-            try:
-                query = self._filter_by_arg(query, arg, args[arg])
-            except AttributeError:
-                abort(404)
-        if not current_user.admin:
-            query = query.filter(self.model.user_id == current_user.id)
-        return query.all()
-
-    def _filter_by_arg(self, query, key, value):
-        return query.filter(getattr(self.model, key).contains(value)) \
-            if isinstance(getattr(self.model, key), str) else query.filter(getattr(self.model, key) == value)
-
-
-class Decks(RestrictedFilterableCRUD):
+class Decks(FilterableCRUD):
     def __init__(self):
         super().__init__("/decks", ["GET", "PUT", "POST", "DELETE"], db, Deck)
 
@@ -60,6 +40,16 @@ class Decks(RestrictedFilterableCRUD):
         user.decks.append(deck)
         db.session.commit()
         return Response(data=deck.jsonify()), 201
+
+    def _filter(self, args):
+        if not args:
+            return current_user.decks
+        query = Deck.query
+        if name := args.get('name'):
+            query = query.filter(Deck.name.contains(name))
+        if not current_user.admin and args.get('user') != current_user.id:
+            query = query.filter(Deck.user_id == current_user.id)
+        return query.all()
 
     @CRUD.gets_by_id(needs_permission=True)
     def update(self, **kwargs) -> jsonify:
@@ -78,7 +68,7 @@ class Decks(RestrictedFilterableCRUD):
         return Response(message=f"Deleted {deck.name}"), 200
 
 
-class Cards(RestrictedFilterableCRUD):
+class Cards(FilterableCRUD):
 
     def __init__(self):
         super().__init__("/cards", ["GET", "PUT", "POST", "DELETE"], db, Card)
@@ -99,6 +89,20 @@ class Cards(RestrictedFilterableCRUD):
         card = Card(power=try_int(data['power']), name=data['name'], description=desc)
         user.cards.append(card)
         return card
+
+    def _filter(self, args):
+        if not args:
+            return current_user.cards
+        query = Card.query
+        if name := args.get('name'):
+            query = query.filter(Card.name.contains(name))
+        if power := args.get('power'):
+            query = query.filter(Card.power == power)
+        if desc := args.get('description'):
+            query = query.filter(Card.description.contains(desc))
+        if not current_user.admin and args.get('user') != current_user.id:
+            query = query.filter(Card.user_id == current_user.id)
+        return query.all()
 
     # TODO: Fix adding to deck that doesn't exist.
     @CRUD.gets_by_id(needs_permission=True)
