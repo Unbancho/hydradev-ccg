@@ -1,26 +1,30 @@
-from crud import CRUD, try_int
+from crud import CRUD, to_int
 from response import Response
 from models import User, Deck, Card, db
 from flask_login import current_user
 from flask import jsonify, request, abort
 from authentication import bcrypt
 
-NoAlterations = "No alterations"
-
 
 class FilterableCRUD(CRUD):
+    """
+    CRUD manager with generalized GET by ID response. Filtering rules for URL query parameters must be implemented.
+    """
     def read(self, **kwargs) -> jsonify:
         if id := kwargs.get('id'):
-            return self.read_one(id=try_int(id))
+            return self.read_one(id=to_int(id))
         result = self._filter(kwargs.get('args'))
         return Response([r.jsonify() for r in result]), 200
 
     @CRUD.gets_by_id(needs_permission=True)
-    def read_one(self, **kwargs):
+    def read_one(self, **kwargs) -> jsonify:
         return Response(kwargs['model'].jsonify()), 200
 
     # TODO: bad request handle JSON
     def _filter(self, args):
+        """
+        Must be implemented. Is used to handle URL query parameters.
+        """
         raise NotImplementedError
 
 
@@ -34,7 +38,7 @@ class Decks(FilterableCRUD):
         name = data['name']
         cards = data.get('cards', [])
         deck = Deck(name=name, cards=cards)
-        user = User.query.get(try_int(id)) if (id := data.get('user')) and current_user.admin else current_user
+        user = User.query.get(to_int(id)) if (id := data.get('user')) and current_user.admin else current_user
         if not user:
             return abort(404)
         user.decks.append(deck)
@@ -55,10 +59,9 @@ class Decks(FilterableCRUD):
     def update(self, **kwargs) -> jsonify:
         data = request.json
         deck = kwargs['model']
-        old = deck.jsonify()
         deck = CRUD._update_model(deck, data)
         db.session.commit()
-        return Response(data=deck.jsonify(), message=None if deck.jsonify() != old else NoAlterations), 200
+        return Response(data=deck.jsonify()), 200
 
     @CRUD.gets_by_id(needs_permission=True)
     def delete(self, **kwargs) -> jsonify:
@@ -76,7 +79,7 @@ class Cards(FilterableCRUD):
     @CRUD.needs_data('name', 'power')
     def create(self, **kwargs) -> jsonify:
         data = kwargs['data']
-        user = User.query.get(try_int(id)) if (id := data.get('user')) and current_user.admin else current_user
+        user = User.query.get(to_int(id)) if (id := data.get('user')) and current_user.admin else current_user
         if not user:
             return abort(404)
         card = Cards.create_card(data, user)
@@ -86,7 +89,7 @@ class Cards(FilterableCRUD):
     @staticmethod
     def create_card(data: dict, user: User) -> Card:
         desc = data.get('description', '')  # Some cards might just be Beatsticks.
-        card = Card(power=try_int(data['power']), name=data['name'], description=desc)
+        card = Card(power=to_int(data['power']), name=data['name'], description=desc)
         user.cards.append(card)
         return card
 
@@ -104,21 +107,18 @@ class Cards(FilterableCRUD):
             query = query.filter(Card.user_id == current_user.id)
         return query.all()
 
-    # TODO: Fix adding to deck that doesn't exist.
     @CRUD.gets_by_id(needs_permission=True)
     def update(self, **kwargs) -> jsonify:
         data = request.json
         card = kwargs['model']
-        # TODO: Fix.
         if deck_id := data.get('deck_id'):
-            if not (deck := Deck.query.get(try_int(deck_id))):
+            if not (deck := Deck.query.get(to_int(deck_id))):
                 raise abort(404)
             if not deck.can_be_accessed_by(current_user):
                 raise abort(403)
-        old = card.jsonify()
         card = CRUD._update_model(card, data)
         db.session.commit()
-        return Response(data=card.jsonify(), message=None if old != card.jsonify() else NoAlterations), 200
+        return Response(data=card.jsonify()), 200
 
     @CRUD.gets_by_id(needs_permission=True)
     def delete(self, **kwargs) -> jsonify:
@@ -173,13 +173,11 @@ class Users(FilterableCRUD):
     def update(self, **kwargs) -> jsonify:
         data = dict(request.json)
         user = kwargs['model']
-        old = user.jsonify()
-        if password := data.pop("password", None):
+        if password := data.pop("password", None):  # NOTE: We need to hash the password before replacing.
             user.hash = bcrypt.generate_password_hash(password)
         user = CRUD._update_model(user, data)
         db.session.commit()
-        return Response(data=user.jsonify(),
-                        message=None if old != user.jsonify() else NoAlterations), 200
+        return Response(data=user.jsonify()), 200
 
     @needs_admin
     @CRUD.gets_by_id(needs_permission=False)

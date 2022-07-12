@@ -1,35 +1,19 @@
 from flask import Blueprint, jsonify, request
 from flask_login import LoginManager, login_required, login_user, logout_user, current_user
-from models import User, Deck, Card, db
+from models import User, db
 from flask_bcrypt import Bcrypt
-from flask_admin import Admin
-from flask_admin.contrib.sqla import ModelView
 from response import Response
 
-auth = Blueprint(name="auth", import_name=__name__, url_prefix="/auth", template_folder='templates')
-
+auth = Blueprint(name="auth", import_name=__name__, url_prefix="/auth")
 login_manager = LoginManager()
-
 bcrypt = Bcrypt()
 
 
-class ProtectedView(ModelView):
-    def is_accessible(self):
-        return current_user.admin and current_user.is_authenticated
-
-
-class UserAdminView(ProtectedView):
-    form_edit_rules = ('username', 'decks', 'cards', 'admin')
-    column_list = {'username', 'real_name', 'decks', 'cards', 'admin'}
-
-
-admin = Admin()
-admin.add_view(UserAdminView(User, db.session))
-admin.add_view(ProtectedView(Deck, db.session))
-admin.add_view(ProtectedView(Card, db.session))
-
-
 def needs_auth_data(func):
+    """
+    Decorator function. Use this to decorate methods that require Username and Password form data.
+    Returns 400 if requirements are not satisfied.
+    """
     def _inner():
         if not (username := request.form.get("username")):
             return Response(message="No username provided."), 400
@@ -43,7 +27,7 @@ def needs_auth_data(func):
 @needs_auth_data
 def login(username: str, password: str) -> jsonify:
     user = User.query.filter_by(username=username).first()
-    authenticated = user and bcrypt.check_password_hash(user.hash, password)
+    authenticated = user and bcrypt.check_password_hash(user.hash, password)    # NOTE: Hash check.
     if not authenticated:
         return Response(message="Authentication failed."), 401
     if login_user(load_user(user.id)):
@@ -54,12 +38,11 @@ def login(username: str, password: str) -> jsonify:
 @auth.post('/register', endpoint="register")
 @needs_auth_data
 def register(username: str, password: str) -> jsonify:
-    register_data = request.form
-    if not (real_name := register_data.get("real_name")):
+    if not (real_name := request.form.get("real_name")):
         return Response(message="No real name provided."), 400
     if User.query.filter_by(username=username).first():
         return Response(message=f"{username} is taken."), 400
-    p_hash = bcrypt.generate_password_hash(password)
+    p_hash = bcrypt.generate_password_hash(password)    # NOTE: Hash the password.
     user = User(username=username, hash=p_hash, real_name=real_name)
     db.session.add(user)
     db.session.commit()
@@ -80,4 +63,7 @@ def get_current_user() -> jsonify:
 
 @login_manager.user_loader
 def load_user(id) -> User:
+    """
+    utility function for Flask
+    """
     return User.query.get(id)

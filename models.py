@@ -5,16 +5,22 @@ db = SQLAlchemy()
 
 
 class RestrictedAccess:
+    """
+    Interface to implement permission verification.
+    """
     def can_be_accessed_by(self, user) -> bool:
         raise NotImplementedError
 
 
 class JSONifiable:
+    """
+    Interface to implement conversion into dict for JSON-friendliness.
+    """
     def jsonify(self) -> dict:
         raise NotImplementedError
 
 
-# TODO: many-to-many table to have one card in multiple decks?
+# TODO: Consider many-to-many table to have one card in multiple decks.
 
 
 class Card(db.Model, RestrictedAccess, JSONifiable):
@@ -26,7 +32,7 @@ class Card(db.Model, RestrictedAccess, JSONifiable):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
     def can_be_accessed_by(self, user) -> bool:
-        return self.user == user or user.admin
+        return self.user_id == user.id or user.admin
 
     def jsonify(self) -> dict:
         return {
@@ -46,7 +52,7 @@ class Deck(db.Model, RestrictedAccess, JSONifiable):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     def can_be_accessed_by(self, user) -> bool:
-        return self.user == user or user.admin
+        return self.user_id == user.id or user.admin
 
     def jsonify(self) -> dict:
         return {
@@ -67,7 +73,7 @@ class User(db.Model, UserMixin, RestrictedAccess, JSONifiable):
     admin = db.Column(db.Boolean, default=False)
 
     def can_be_accessed_by(self, user) -> bool:
-        return self == user or user.admin
+        return self.user_id == user.id or user.admin
 
     def jsonify(self) -> dict:
         return {

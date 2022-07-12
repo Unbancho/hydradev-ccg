@@ -14,12 +14,15 @@ app.config['SECRET_KEY'] = 'GWENT'
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def catch_all(path):
-    return app.send_static_file("collection.html")
+    return Response(message="do cool spa frontend things")
 
 
 def build_crud_routes(crud: CRUD, _app: Flask):
-    app.add_url_rule(crud.prefix, endpoint=crud.prefix, view_func=crud.manager, methods=crud.methods)
-    app.add_url_rule(crud.prefix+'/<id>', endpoint=crud.prefix+'/<id>', view_func=crud.manager, methods=crud.methods)
+    """
+    Maps all the CRUD routes to the CRUD routers.
+    """
+    app.add_url_rule(crud.prefix, endpoint=crud.prefix, view_func=crud.router, methods=crud.methods)
+    app.add_url_rule(crud.prefix + '/<id>', endpoint=crud.prefix+'/<id>', view_func=crud.router, methods=crud.methods)
 
 
 @app.errorhandler(NotFound)

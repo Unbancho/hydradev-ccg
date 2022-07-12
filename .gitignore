@@ -5,5 +5,3 @@ __pycache__/
 database.db
 templates/
 .idea/
-error_messages.txt
-static
