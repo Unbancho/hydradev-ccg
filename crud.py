@@ -1,8 +1,7 @@
 from flask import jsonify, request, abort
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import login_required
+from flask_login import login_required, current_user
 from response import Response
-from authentication import has_access_to_data
 
 NotProvided = "Not provided: "
 NoWithID = "Doesn't exist."
@@ -22,13 +21,13 @@ class CRUD:
     def create(self, **kwargs) -> jsonify:
         self._check_implemented('POST')
 
-    def read(self, id: int = None, **kwargs) -> jsonify:
+    def read(self, **kwargs) -> jsonify:
         self._check_implemented('GET')
 
-    def update(self, id: int, **kwargs) -> jsonify:
+    def update(self, **kwargs) -> jsonify:
         self._check_implemented('PUT')
 
-    def delete(self, id: int, **kwargs) -> jsonify:
+    def delete(self, **kwargs) -> jsonify:
         self._check_implemented('DELETE')
 
     def _check_implemented(self, method: str):
@@ -63,15 +62,11 @@ class CRUD:
                     return Response(message=NotProvided+'id'), 400
                 if not (model := self.model.query.get(try_int(id))):
                     return Response(message=NoWithID), 404
-                if needs_permission and not has_access_to_data(model, True):
+                if needs_permission and not model.can_be_accessed_by(current_user):
                     return Response(message=Unauthorized), 403
                 return func(self, model=model, **kwargs)
             return _inner
         return _outer
-
-    @gets_by_id(needs_permission=True)
-    def read_one(self, **kwargs):
-        return Response(kwargs['model'].jsonify()), 200
 
     @login_required
     def manager(self, id: int = None, **kwargs) -> jsonify:

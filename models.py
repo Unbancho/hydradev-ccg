@@ -4,13 +4,29 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
-class Card(db.Model):
+class RestrictedAccess:
+    def can_be_accessed_by(self, user) -> bool:
+        raise NotImplementedError
+
+
+class JSONifiable:
+    def jsonify(self) -> dict:
+        raise NotImplementedError
+
+
+# TODO: many-to-many table to have one card in multiple decks?
+
+
+class Card(db.Model, RestrictedAccess, JSONifiable):
     id = db.Column(db.Integer, primary_key=True)
     power = db.Column(db.Integer, nullable=False)
     name = db.Column(db.String(), nullable=False)
     description = db.Column(db.String(), nullable=False)
     deck_id = db.Column(db.Integer, db.ForeignKey('deck.id'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    def can_be_accessed_by(self, user) -> bool:
+        return self.user == user or user.admin
 
     def jsonify(self) -> dict:
         return {
@@ -23,11 +39,14 @@ class Card(db.Model):
                 }
 
 
-class Deck(db.Model):
+class Deck(db.Model, RestrictedAccess, JSONifiable):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(), nullable=False)
     cards = db.relationship("Card", backref='deck')
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    def can_be_accessed_by(self, user) -> bool:
+        return self.user == user or user.admin
 
     def jsonify(self) -> dict:
         return {
@@ -38,7 +57,7 @@ class Deck(db.Model):
                 }
 
 
-class User(db.Model, UserMixin):
+class User(db.Model, UserMixin, RestrictedAccess, JSONifiable):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(), nullable=False, unique=True)
     hash = db.Column(db.String(), nullable=False)
@@ -46,6 +65,9 @@ class User(db.Model, UserMixin):
     decks = db.relationship("Deck", backref='user', cascade="all, delete-orphan")
     cards = db.relationship("Card", backref='user', cascade="all, delete-orphan")
     admin = db.Column(db.Boolean, default=False)
+
+    def can_be_accessed_by(self, user) -> bool:
+        return self == user or user.admin
 
     def jsonify(self) -> dict:
         return {
