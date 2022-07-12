@@ -1,6 +1,6 @@
 from flask import Flask
 from models import db
-from authentication import auth, login_manager, admin
+from authentication import auth, login_manager
 from crud import CRUD
 from crud_handling import Decks, Cards, Users
 from werkzeug.exceptions import NotFound, BadRequest, Forbidden, Unauthorized
@@ -49,7 +49,6 @@ if __name__ == "__main__":
     app.register_blueprint(auth)
     db.init_app(app)
     login_manager.init_app(app)
-    admin.init_app(app)
     build_crud_routes(Decks(), app)
     build_crud_routes(Cards(), app)
     build_crud_routes(Users(), app)

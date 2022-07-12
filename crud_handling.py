@@ -51,7 +51,9 @@ class Decks(FilterableCRUD):
         query = Deck.query
         if name := args.get('name'):
             query = query.filter(Deck.name.contains(name))
-        if not current_user.admin and args.get('user') != current_user.id:
+        if current_user.admin and (id := args.get('user')):
+            query = query.filter(Deck.user_id == id)
+        else:
             query = query.filter(Deck.user_id == current_user.id)
         return query.all()
 
@@ -103,7 +105,9 @@ class Cards(FilterableCRUD):
             query = query.filter(Card.power == power)
         if desc := args.get('description'):
             query = query.filter(Card.description.contains(desc))
-        if not current_user.admin and args.get('user') != current_user.id:
+        if current_user.admin and (id := args.get('user')):
+            query = query.filter(Card.user_id == id)
+        else:
             query = query.filter(Card.user_id == current_user.id)
         return query.all()
 
@@ -128,18 +132,10 @@ class Cards(FilterableCRUD):
         return Response(message=f"Deleted {card.name}"), 200
 
 
-class Users(FilterableCRUD):
+class Users(CRUD):
 
     def __init__(self):
         super().__init__("/users", ["GET", "PUT", "POST", "DELETE"], db, User)
-
-    def _filter(self, args):
-        if not args:
-            return User.query.all()
-        query = User.query
-        for arg in args:
-            query = query.filter(getattr(User, arg) == args[arg])
-        return query.all()
 
     @staticmethod
     def needs_admin(func):
@@ -166,7 +162,14 @@ class Users(FilterableCRUD):
 
     @needs_admin
     def read(self, **kwargs) -> jsonify:
-        return super().read(**kwargs)
+        if id := kwargs.get('id'):
+            user = User.query.get(to_int(id))
+            if user:
+                return Response(user.jsonify()), 200
+            else:
+                return Response(), 404
+        result = User.query.all()
+        return Response([r.jsonify() for r in result]), 200
 
     @needs_admin
     @CRUD.gets_by_id(needs_permission=False)
